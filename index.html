@@ -136,7 +136,7 @@
   .tiles {
     position: absolute;
     inset: var(--pad);
-    --s: calc((100% - 3 * var(--gap)) / 4);
+    --s: 90px; /* 由 JS 按实际宽度换算成像素 */
   }
 
   .tile {
@@ -255,21 +255,25 @@
   let best = Number(localStorage.getItem(BEST_KEY) || 0);
   let busy = false;
   let over = false;
-  let won = false;
 
-  /* ---------- 颜色：2 黄 -> 2048 红 ---------- */
+  /* ---------- 颜色：2 黄 -> 2048 及以上红 ---------- */
   function tileHueLight(value) {
     const t = Math.min((Math.log2(value) - 1) / 10, 1); // 2 => 0, 2048 => 1
     return { h: 52 - 52 * t, l: 80 - 32 * t };            // hsl(h 85% l)
   }
 
+  function formatValue(value) {
+    return value >= 10000 ? Math.floor(value / 1000) + 'k' : String(value);
+  }
+
   function paint(el, value) {
     const { h, l } = tileHueLight(value);
+    const text = formatValue(value);
     el.style.setProperty('--h', h.toFixed(1));
     el.style.setProperty('--l', l.toFixed(1) + '%');
     el.style.color = l > 66 ? '#43260c' : '#fff8f0';
-    el.dataset.digits = String(value).length;
-    el.textContent = value;
+    el.dataset.digits = text.length;
+    el.textContent = text;
   }
 
   /* ---------- 基础渲染 ---------- */
@@ -424,17 +428,6 @@
   }
 
   function checkState() {
-    if (!won) {
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-          if (grid[r][c] && grid[r][c].value >= 2048) {
-            won = true;
-            showOverlay('你赢了！', '已经拼出 2048，可以继续挑战更大数字', '继续玩', hideOverlay);
-            return;
-          }
-        }
-      }
-    }
     if (!canMove()) {
       over = true;
       showOverlay('游戏结束', '最终得分 ' + score + '，没位置可走了', '再来一局', newGame);
@@ -442,13 +435,18 @@
   }
 
   /* ---------- 新游戏 ---------- */
+  function updateTileSize() {
+    const gap = parseFloat(getComputedStyle(tilesEl).getPropertyValue('--gap')) || 12;
+    const size = (tilesEl.clientWidth - 3 * gap) / 4;
+    if (size > 0) tilesEl.style.setProperty('--s', size + 'px');
+  }
+
   function newGame() {
     tilesEl.innerHTML = '';
     grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
     score = 0;
     busy = false;
     over = false;
-    won = false;
     scoreEl.textContent = '0';
     bestEl.textContent = best;
     hideOverlay();
@@ -491,6 +489,8 @@
 
   document.getElementById('new-game').addEventListener('click', newGame);
 
+  window.addEventListener('resize', updateTileSize);
+  updateTileSize();
   newGame();
 })();
 </script>
