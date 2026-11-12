@@ -155,7 +155,7 @@
     color: #43260c;
     background: hsl(var(--h) 85% var(--l));
     box-shadow: 0 6px 16px -10px rgba(0, 0, 0, .8);
-    transition: left .13s ease, top .13s ease, background-color .2s ease;
+    transition: left .16s ease, top .16s ease, width .22s ease, height .22s ease, background-color .2s ease;
     will-change: left, top;
   }
   .tile[data-digits="3"] { font-size: calc(var(--s) * 0.34); }
@@ -196,6 +196,25 @@
   }
 
   .hint { margin: 16px 0 0; text-align: center; font-size: 11px; color: var(--muted); letter-spacing: .4px; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 36px;
+    transform: translate(-50%, 12px);
+    padding: 9px 18px;
+    font-size: 13px;
+    color: var(--text);
+    background: rgba(50, 38, 26, .94);
+    border: 1px solid rgba(255, 170, 60, .35);
+    border-radius: 99px;
+    box-shadow: 0 12px 30px -14px #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .22s ease, transform .22s ease;
+    z-index: 10;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
 </style>
 </head>
 <body>
@@ -231,12 +250,17 @@
       </div>
     </div>
 
-    <p class="hint">方向键 / WASD 移动 · 手机上下左右滑动</p>
+    <p class="hint">方向键 / WASD 移动 · 手机上下左右滑动 · 最大数字到 65k 升级 5×5</p>
   </div>
+
+  <div class="toast" id="toast"></div>
 
 <script>
 (function () {
-  const SIZE = 4;
+  const BASE_SIZE = 4;
+  const MAX_SIZE = 5;
+  const UPGRADE_VALUE = 65536; // 显示为 65k
+  let SIZE = BASE_SIZE;
   const BEST_KEY = 'game-2048-best';
 
   const tilesEl = document.getElementById('tiles');
@@ -277,7 +301,11 @@
   }
 
   /* ---------- 基础渲染 ---------- */
-  for (let i = 0; i < SIZE * SIZE; i++) gridBg.appendChild(document.createElement('div'));
+  function buildBackground() {
+    gridBg.innerHTML = '';
+    gridBg.style.gridTemplateColumns = 'repeat(' + SIZE + ', 1fr)';
+    for (let i = 0; i < SIZE * SIZE; i++) gridBg.appendChild(document.createElement('div'));
+  }
 
   function newTile(r, c, value, isNew) {
     const tile = { id: ++uid, value, r, c, el: null };
@@ -306,7 +334,7 @@
     }
     if (!empty.length) return null;
     const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-    return newTile(r, c, Math.random() < 0.9 ? 2 : 4, true);
+    return newTile(r, c, 2, true);
   }
 
   function updateScore(gained) {
@@ -398,6 +426,7 @@
 
       spawnRandom();
       busy = false;
+      tryUpgrade();
       checkState();
     }, 135);
   }
@@ -437,13 +466,56 @@
   /* ---------- 新游戏 ---------- */
   function updateTileSize() {
     const gap = parseFloat(getComputedStyle(tilesEl).getPropertyValue('--gap')) || 12;
-    const size = (tilesEl.clientWidth - 3 * gap) / 4;
+    const size = (tilesEl.clientWidth - (SIZE - 1) * gap) / SIZE;
     if (size > 0) tilesEl.style.setProperty('--s', size + 'px');
   }
 
+  let toastTimer = null;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2000);
+  }
+
+  /* ---------- 最大数字首次到 65k：4×4 缩到右下角，左/上新增一格变 5×5 ---------- */
+  function tryUpgrade() {
+    if (SIZE >= MAX_SIZE) return;
+
+    let reached = false;
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (grid[r][c] && grid[r][c].value >= UPGRADE_VALUE) reached = true;
+      }
+    }
+    if (!reached) return;
+
+    const old = grid;
+    SIZE = MAX_SIZE;
+    grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+
+    // 旧瓦片整体右下移一格，顶部与左侧空出新格
+    for (let r = 0; r < old.length; r++) {
+      for (let c = 0; c < old[r].length; c++) {
+        const t = old[r][c];
+        if (!t) continue;
+        grid[r + 1][c + 1] = t;
+        setPos(t, r + 1, c + 1);
+      }
+    }
+
+    buildBackground();
+    updateTileSize();
+    toast('最大数字达到 65k，棋盘升级为 5×5！');
+  }
+
   function newGame() {
+    SIZE = BASE_SIZE;
     tilesEl.innerHTML = '';
     grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+    buildBackground();
+    updateTileSize();
     score = 0;
     busy = false;
     over = false;
