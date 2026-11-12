@@ -95,6 +95,20 @@ button:active { transform: scale(.96); }
 }
 #new-game:hover { filter: brightness(1.07); }
 
+.toolbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+#new-game, #undo { white-space: nowrap; }
+
+#undo {
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .14);
+}
+#undo:hover:not(:disabled) { background: rgba(255, 255, 255, .14); }
+#undo:disabled { opacity: .38; cursor: default; }
+
 .legend { display: flex; flex-direction: column; gap: 4px; flex: 1; max-width: 190px; }
 .legend-bar {
   height: 8px;

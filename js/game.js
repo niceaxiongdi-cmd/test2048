@@ -113,6 +113,7 @@
   function move(dir) {
     if (busy || over) return;
 
+    const before = snapshotState();
     let moved = false;
     let gained = 0;
     const merges = [];
@@ -154,6 +155,8 @@
 
     if (!moved) return;
 
+    undoState = before;
+    updateUndoButton();
     busy = true;
     updateScore(gained);
 
@@ -171,6 +174,7 @@
       busy = false;
       tryUpgrade();
       checkState();
+      updateUndoButton();
       saveState();
     }, 135);
   }
@@ -254,6 +258,46 @@
     toast('最大数字达到 65k，棋盘升级为 5×5！');
   }
 
+  /* ---------- 回退一步 ---------- */
+  let undoState = null;
+
+  function snapshotState() {
+    const tiles = [];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (grid[r][c]) tiles.push([r, c, grid[r][c].value]);
+      }
+    }
+    return { size: SIZE, score: score, tiles: tiles };
+  }
+
+  function updateUndoButton() {
+    document.getElementById('undo').disabled = busy || !undoState;
+  }
+
+  function undo() {
+    if (busy || !undoState) return;
+    const s = undoState;
+    undoState = null;
+
+    SIZE = s.size;
+    tilesEl.innerHTML = '';
+    grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
+    buildBackground();
+    updateTileSize();
+
+    score = s.score;
+    scoreEl.textContent = score;
+    over = false;
+    busy = false;
+    hideOverlay();
+
+    for (const t of s.tiles) newTile(t[0], t[1], t[2], false);
+
+    updateUndoButton();
+    saveState();
+  }
+
   /* ---------- 本地存档 ---------- */
   function saveState() {
     const tiles = [];
@@ -302,6 +346,7 @@
     }
 
     if (over) showOverlay('游戏结束', '最终得分 ' + score + '，没位置可走了', '再来一局', newGame);
+    updateUndoButton();
     return true;
   }
 
@@ -320,6 +365,8 @@
     hideOverlay();
     spawnRandom();
     spawnRandom();
+    undoState = null;
+    updateUndoButton();
     saveState();
   }
 
@@ -357,6 +404,7 @@
   }, { passive: true });
 
   document.getElementById('new-game').addEventListener('click', newGame);
+  document.getElementById('undo').addEventListener('click', undo);
 
   window.addEventListener('resize', updateTileSize);
   updateTileSize();
